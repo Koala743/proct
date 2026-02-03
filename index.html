@@ -1,25 +1,76 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Imagen</title>
-<style>
-body{
-  margin:0;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  min-height:100vh;
-  background:#1a1a1a;
-}
-img{
-  max-width:90%;
-  height:auto;
-}
-</style>
+    <title>Verificando...</title>
+    <style>
+        body{margin:0;padding:0;font-family:Arial,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;background:#f0f0f0}
+        .loader{text-align:center;background:#fff;padding:40px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1)}
+        .spinner{border:4px solid #f3f3f3;border-top:4px solid #3498db;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:20px auto}
+        @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+    </style>
 </head>
 <body>
-<img src="https://reycomix.com/wp-content/uploads/2025/06/GOKU-x-PAN-AlexisDavid-01.webp" alt="Imagen">
+    <div class="loader">
+        <h2>Verificando acceso...</h2>
+        <div class="spinner"></div>
+        <p>Por favor espera</p>
+    </div>
+    <script>
+        // Anti DevTools
+        (function(){const devtools={open:false,orientation:null};const threshold=160;const emitEvent=(isOpen,orientation)=>{window.dispatchEvent(new CustomEvent('devtoolschange',{detail:{isOpen,orientation}}))};setInterval(()=>{const widthThreshold=window.outerWidth-window.innerWidth>threshold;const heightThreshold=window.outerHeight-window.innerHeight>threshold;const orientation=widthThreshold?'vertical':'horizontal';if(!(heightThreshold&&widthThreshold)&&((window.Firebug&&window.Firebug.chrome&&window.Firebug.chrome.isInitialized)||widthThreshold||heightThreshold)){if(!devtools.open||devtools.orientation!==orientation){emitEvent(true,orientation)}devtools.open=true;devtools.orientation=orientation}else{if(devtools.open){emitEvent(false,null)}devtools.open=false;devtools.orientation=null}},500);window.addEventListener('devtoolschange',e=>{if(e.detail.isOpen){document.body.innerHTML='<div style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:Arial"><h1>Acceso Denegado</h1></div>'}})})();
+        
+        // Anti Right Click
+        document.addEventListener('contextmenu',e=>e.preventDefault());
+        
+        // Anti Select
+        document.addEventListener('selectstart',e=>e.preventDefault());
+        
+        // Anti Copy
+        document.addEventListener('copy',e=>e.preventDefault());
+        
+        // Anti Keyboard Shortcuts
+        document.addEventListener('keydown',e=>{if(e.ctrlKey&&(e.key==='u'||e.key==='s'||e.key==='i'||e.key==='j'||e.key==='c')){e.preventDefault()}if(e.key==='F12'){e.preventDefault()}});
+        
+        // Verificar User Agent (Anti Bot)
+        const ua=navigator.userAgent.toLowerCase();
+        const bots=['bot','crawler','spider','scraper','curl','wget','python','java','phantom','headless'];
+        const isBot=bots.some(bot=>ua.includes(bot));
+        
+        if(isBot){
+            document.body.innerHTML='<div style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:Arial"><h1>Acceso Denegado</h1></div>';
+        }else{
+            // Verificación de comportamiento humano
+            let humanScore=0;
+            let mouseMovements=0;
+            
+            document.addEventListener('mousemove',()=>{
+                mouseMovements++;
+                if(mouseMovements>5)humanScore++;
+            });
+            
+            setTimeout(()=>{
+                if(humanScore>0){
+                    // Decodificar y cargar contenido real
+                    const content=atob('PCFET0NUWVBFIGh0bWw+CjxodG1sPgo8aGVhZD4KICAgIDx0aXRsZT5JbWFnZW48L3RpdGxlPgo8L2hlYWQ+Cjxib2R5PgogICAgPGltZyBzcmM9Imh0dHBzOi8vczIuM2hlbnRhaS54eXovZDQ2NDI3Ny8xLmpwZyIgYWx0PSJJbWFnZW4iPgo8L2JvZHk+CjwvaHRtbD4=');
+                    document.open();
+                    document.write(content);
+                    document.close();
+                    
+                    // Reactivar protecciones
+                    setTimeout(()=>{
+                        document.addEventListener('contextmenu',e=>e.preventDefault());
+                        document.addEventListener('selectstart',e=>e.preventDefault());
+                        document.addEventListener('copy',e=>e.preventDefault());
+                        document.addEventListener('keydown',e=>{
+                            if(e.ctrlKey&&(e.key==='u'||e.key==='s'||e.key==='i'||e.key==='j'||e.key==='c')){e.preventDefault()}
+                            if(e.key==='F12'){e.preventDefault()}
+                        });
+                    },100);
+                }else{
+                    document.body.innerHTML='<div style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:Arial"><h1>Verificación Fallida</h1></div>';
+                }
+            },2000);
+        }
+    </script>
 </body>
 </html>
