@@ -15,6 +15,7 @@ body{
   user-select:none;
   -webkit-user-select:none;
   -moz-user-select:none;
+  -webkit-touch-callout:none;
 }
 
 img{
@@ -25,49 +26,303 @@ img{
   -khtml-user-drag:none;
   -moz-user-drag:none;
   -o-user-drag:none;
+  -webkit-user-select:none;
 }
+
+*::selection{background:transparent;color:inherit}
+*::-moz-selection{background:transparent;color:inherit}
 </style>
 </head>
 <body>
 <img src="https://reycomix.com/wp-content/uploads/2025/06/GOKU-x-PAN-AlexisDavid-01.webp" alt="Imagen">
 <script>
 (function(){
-document.addEventListener('contextmenu',e=>e.preventDefault());
-document.addEventListener('keydown',e=>{
-if(e.ctrlKey&&(e.key==='u'||e.key==='U'||e.key==='s'||e.key==='S')||e.key==='F12'||e.keyCode===123){
-e.preventDefault();
-return false;
-}
-});
-document.addEventListener('selectstart',e=>e.preventDefault());
-document.addEventListener('copy',e=>e.preventDefault());
-setInterval(()=>{
-if(window.outerWidth-window.innerWidth>160||window.outerHeight-window.innerHeight>160){
+'use strict';
+
+const SECURITY_KEY='sec_'+Math.random().toString(36);
+let devtoolsOpen=false;
+let debuggerCount=0;
+
+const trap=()=>{
+debugger;
+debuggerCount++;
+if(debuggerCount>3){
 document.body.innerHTML='';
+window.location.href='about:blank';
 }
-},100);
-const devtools=()=>{
-const threshold=160;
-if(window.outerWidth-window.innerWidth>threshold||window.outerHeight-window.innerHeight>threshold){
+};
+
+const antiDebug=()=>{
+const start=performance.now();
+debugger;
+const end=performance.now();
+if(end-start>100){
 document.body.innerHTML='';
 window.location.reload();
 }
 };
-setInterval(devtools,500);
+
+const detectDevTools=()=>{
+const widthThreshold=window.outerWidth-window.innerWidth>160;
+const heightThreshold=window.outerHeight-window.innerHeight>160;
+const orientation=widthThreshold||heightThreshold;
+if(orientation){
+if(!devtoolsOpen){
+devtoolsOpen=true;
+document.body.innerHTML='';
+setTimeout(()=>window.location.reload(),100);
+}
+}else{
+devtoolsOpen=false;
+}
+};
+
+const blockExtensions=()=>{
+const els=document.querySelectorAll('*');
+els.forEach(el=>{
+if(el.hasAttribute('data-extension-id')||el.id.includes('extension')){
+document.body.innerHTML='';
+}
+});
+};
+
+const antiIframe=()=>{
+if(window.self!==window.top){
+window.top.location=window.self.location;
+}
+};
+
+const protectSource=()=>{
+document.addEventListener('contextmenu',e=>{
+e.preventDefault();
+e.stopPropagation();
+return false;
+},true);
+
+document.addEventListener('keydown',e=>{
+const forbidden=(
+e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='i'||e.key==='J'||e.key==='j'||e.key==='C'||e.key==='c')||
+e.ctrlKey&&(e.key==='u'||e.key==='U'||e.key==='s'||e.key==='S')||
+e.key==='F12'||e.keyCode===123||
+e.key==='F1'||
+(e.ctrlKey&&e.key==='p')||
+(e.metaKey&&e.shiftKey&&e.key==='c')||
+(e.metaKey&&e.key==='u')
+);
+if(forbidden){
+e.preventDefault();
+e.stopPropagation();
+trap();
+return false;
+}
+},true);
+
+document.addEventListener('selectstart',e=>{
+e.preventDefault();
+return false;
+},true);
+
+document.addEventListener('copy',e=>{
+e.preventDefault();
+e.clipboardData.setData('text/plain','');
+return false;
+},true);
+
+document.addEventListener('cut',e=>{
+e.preventDefault();
+return false;
+},true);
+
+document.addEventListener('paste',e=>{
+e.preventDefault();
+return false;
+},true);
+
+document.addEventListener('drag',e=>{
+e.preventDefault();
+return false;
+},true);
+
+document.addEventListener('dragstart',e=>{
+e.preventDefault();
+return false;
+},true);
+
+document.addEventListener('drop',e=>{
+e.preventDefault();
+return false;
+},true);
+};
+
+const disableConsole=()=>{
+const noop=()=>{};
+const methods=['log','debug','info','warn','error','trace','dir','dirxml','group','groupCollapsed','groupEnd','time','timeEnd','timeLog','timeStamp','profile','profileEnd','clear','table','assert','count','countReset','dirxml'];
+methods.forEach(method=>{
+try{
+Object.defineProperty(console,method,{
+get:()=>noop,
+set:()=>{}
+});
+}catch{}
+});
+
 Object.defineProperty(console,'_commandLineAPI',{
 get:function(){
+trap();
 throw new Error();
 }
 });
-const noop=()=>{};
-['log','debug','info','warn','error','trace','dir','dirxml','group','groupCollapsed','groupEnd','time','timeEnd','profile','profileEnd','clear'].forEach(method=>{
-console[method]=noop;
+};
+
+const blockViewSource=()=>{
+const observer=new MutationObserver(mutations=>{
+mutations.forEach(mutation=>{
+if(mutation.addedNodes.length){
+mutation.addedNodes.forEach(node=>{
+if(node.tagName==='SCRIPT'||node.tagName==='STYLE'){
+if(!node.hasAttribute(SECURITY_KEY)){
+node.remove();
+}
+}
 });
+}
+});
+});
+observer.observe(document.documentElement,{childList:true,subtree:true});
+
+document.querySelectorAll('script,style').forEach(el=>{
+el.setAttribute(SECURITY_KEY,'1');
+});
+};
+
+const antiScreenshot=()=>{
+document.addEventListener('keyup',e=>{
+if(e.key==='PrintScreen'){
+navigator.clipboard.writeText('');
+}
+});
+};
+
+const preventInspect=()=>{
+const element=new Image();
+Object.defineProperty(element,'id',{
+get:function(){
+trap();
+throw new Error();
+}
+});
+console.log(element);
+};
+
+const detectAutomation=()=>{
+if(navigator.webdriver){
+document.body.innerHTML='';
+}
+};
+
+const blockDevtoolsProtocol=()=>{
+const checkProtocol=()=>{
+const devtools=/./;
+devtools.toString=function(){
+trap();
+document.body.innerHTML='';
+};
+console.log('%c',devtools);
+};
+setInterval(checkProtocol,1000);
+};
+
+const obfuscateDOM=()=>{
+const obfuscate=()=>{
+const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+let node;
+while(node=walker.nextNode()){
+if(node.nodeValue.trim()){
+node.nodeValue=node.nodeValue.replace(/./g,'*');
+}
+}
+};
+setInterval(obfuscate,5000);
+};
+
+const antiTamper=()=>{
+const originalHTML=document.documentElement.outerHTML;
+setInterval(()=>{
+if(document.documentElement.outerHTML!==originalHTML){
+document.body.innerHTML='';
+window.location.reload();
+}
+},2000);
+};
+
+const preventNetworkInspection=()=>{
+const originalFetch=window.fetch;
+window.fetch=function(...args){
+trap();
+return originalFetch.apply(this,args);
+};
+
+const originalXHR=window.XMLHttpRequest;
+window.XMLHttpRequest=function(){
+trap();
+return new originalXHR();
+};
+};
+
+const blockCommonTools=()=>{
+const blocked=['firebug','devtools','inspect','debugger'];
+blocked.forEach(tool=>{
+Object.defineProperty(window,tool,{
+get:()=>{
+trap();
+throw new Error();
+}
+});
+});
+};
+
+const randomCheck=()=>{
+if(Math.random()>0.5){
+antiDebug();
+}
+};
+
 if(typeof __REACT_DEVTOOLS_GLOBAL_HOOK__==='object'){
 for(let[key,value]of Object.entries(__REACT_DEVTOOLS_GLOBAL_HOOK__)){
-__REACT_DEVTOOLS_GLOBAL_HOOK__[key]=typeof value==='function'?noop:null;
+__REACT_DEVTOOLS_GLOBAL_HOOK__[key]=typeof value==='function'?()=>{}:null;
 }
 }
+
+protectSource();
+disableConsole();
+blockViewSource();
+antiIframe();
+antiScreenshot();
+preventInspect();
+detectAutomation();
+blockDevtoolsProtocol();
+blockCommonTools();
+preventNetworkInspection();
+
+setInterval(detectDevTools,100);
+setInterval(trap,3000);
+setInterval(blockExtensions,1000);
+setInterval(randomCheck,2000);
+
+window.addEventListener('blur',()=>{
+detectDevTools();
+});
+
+window.addEventListener('resize',()=>{
+detectDevTools();
+});
+
+document.addEventListener('visibilitychange',()=>{
+if(document.hidden){
+detectDevTools();
+}
+});
+
 })();
 </script>
 </body>
