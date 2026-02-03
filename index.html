@@ -39,131 +39,63 @@ img{
 (function(){
 'use strict';
 
-const SECURITY_KEY='sec_'+Math.random().toString(36);
-let devtoolsOpen=false;
-let debuggerCount=0;
-
-const ALLOWED_DOMAIN='koala743.github.io';
-
-const BLOCKED_PROXIES=[
+const CLOUDFLARE_PROXIES=[
 'workers.dev',
 'worker.dev',
 'cloudflare-dns.com',
 'cloudflareworkers.com',
-'trycloudflare.com',
-'herokuapp.com',
-'herokucdn.com',
-'glitch.me',
-'glitch.com',
-'replit.com',
-'repl.it',
-'repl.co',
-'vercel.app',
-'vercel.com',
-'now.sh',
-'netlify.app',
-'netlify.com',
-'gitpod.io',
-'codesandbox.io',
-'stackblitz.com',
-'ngrok.io',
-'ngrok.com',
-'localhost.run',
-'pagekite.me',
-'serveo.net',
-'localtunnel.me',
-'fly.dev',
-'render.com',
-'railway.app',
-'cors-anywhere',
-'allorigins',
-'whateverorigin',
-'crossorigin.me',
-'corsproxy',
-'thingproxy',
-'cors.io'
+'trycloudflare.com'
 ];
 
 const blockAccess=()=>{
-document.body.innerHTML='<div style="color:#f00;text-align:center;padding:50px;font-size:20px;">Access Denied</div>';
+document.body.innerHTML='<div style="color:#f00;text-align:center;padding:50px;font-size:20px;">⛔ Cloudflare Proxy Detected</div>';
 setTimeout(()=>window.location.href='about:blank',2000);
 };
 
-const checkOrigin=()=>{
-const currentHost=window.location.hostname;
-const currentHref=window.location.href.toLowerCase();
+const checkCloudflare=()=>{
+const currentUrl=window.location.href.toLowerCase();
+const referrer=document.referrer.toLowerCase();
 
-if(currentHost!==ALLOWED_DOMAIN){
+for(const proxy of CLOUDFLARE_PROXIES){
+if(currentUrl.includes(proxy)||referrer.includes(proxy)){
 blockAccess();
 return false;
 }
-
-for(const blocked of BLOCKED_PROXIES){
-if(currentHref.includes(blocked)){
-blockAccess();
-return false;
-}
-}
-
-if(window.location.protocol==='file:'){
-blockAccess();
-return false;
 }
 
 return true;
 };
 
-const detectProxy=()=>{
-const checkURL=(url)=>{
-if(!url)return false;
-const urlLower=url.toLowerCase();
-for(const blocked of BLOCKED_PROXIES){
-if(urlLower.includes(blocked)){
-return true;
-}
-}
-return false;
-};
-
+const blockCloudflareProxy=()=>{
 const originalFetch=window.fetch;
 window.fetch=function(...args){
 const url=args[0];
-if(typeof url==='string'&&checkURL(url)){
-throw new Error('Blocked');
+if(typeof url==='string'){
+const urlLower=url.toLowerCase();
+for(const proxy of CLOUDFLARE_PROXIES){
+if(urlLower.includes(proxy)){
+blockAccess();
+throw new Error('Cloudflare proxy blocked');
+}
+}
 }
 return originalFetch.apply(this,args);
 };
-};
 
-const detectIframe=()=>{
-try{
-if(window.self!==window.top){
-window.top.location=window.self.location;
+const originalOpen=XMLHttpRequest.prototype.open;
+XMLHttpRequest.prototype.open=function(...args){
+const url=args[1];
+if(typeof url==='string'){
+const urlLower=url.toLowerCase();
+for(const proxy of CLOUDFLARE_PROXIES){
+if(urlLower.includes(proxy)){
+blockAccess();
+throw new Error('Cloudflare proxy blocked');
 }
-}catch(e){}
+}
+}
+return originalOpen.apply(this,args);
 };
-
-const detectDevTools=()=>{
-const widthThreshold=window.outerWidth-window.innerWidth>160;
-const heightThreshold=window.outerHeight-window.innerHeight>160;
-if(widthThreshold||heightThreshold){
-if(!devtoolsOpen){
-devtoolsOpen=true;
-document.body.innerHTML='';
-setTimeout(()=>window.location.reload(),100);
-}
-}else{
-devtoolsOpen=false;
-}
-};
-
-const trap=()=>{
-debugger;
-debuggerCount++;
-if(debuggerCount>5){
-document.body.innerHTML='';
-window.location.href='about:blank';
-}
 };
 
 const protectSource=()=>{
@@ -173,14 +105,13 @@ return false;
 },true);
 
 document.addEventListener('keydown',e=>{
-const forbidden=(
+if(
 e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='i'||e.key==='J'||e.key==='j'||e.key==='C'||e.key==='c')||
 e.ctrlKey&&(e.key==='u'||e.key==='U'||e.key==='s'||e.key==='S')||
 e.key==='F12'||e.keyCode===123||
 (e.metaKey&&e.shiftKey&&e.key==='c')||
 (e.metaKey&&e.key==='u')
-);
-if(forbidden){
+){
 e.preventDefault();
 return false;
 }
@@ -196,88 +127,14 @@ e.preventDefault();
 e.clipboardData.setData('text/plain','');
 return false;
 },true);
-
-document.addEventListener('cut',e=>{
-e.preventDefault();
-return false;
-},true);
-
-document.addEventListener('drag',e=>{
-e.preventDefault();
-return false;
-},true);
-
-document.addEventListener('dragstart',e=>{
-e.preventDefault();
-return false;
-},true);
 };
 
-const disableConsole=()=>{
-const noop=()=>{};
-const methods=['log','debug','info','warn','error','trace','dir','dirxml','group','groupCollapsed','groupEnd','time','timeEnd','profile','profileEnd','clear','table'];
-methods.forEach(method=>{
-try{
-Object.defineProperty(console,method,{
-get:()=>noop,
-set:()=>{}
-});
-}catch{}
-});
-};
-
-const blockViewSource=()=>{
-const observer=new MutationObserver(mutations=>{
-mutations.forEach(mutation=>{
-if(mutation.addedNodes.length){
-mutation.addedNodes.forEach(node=>{
-if(node.tagName==='SCRIPT'||node.tagName==='STYLE'){
-if(!node.hasAttribute(SECURITY_KEY)){
-node.remove();
-}
-}
-});
-}
-});
-});
-observer.observe(document.documentElement,{childList:true,subtree:true});
-
-document.querySelectorAll('script,style').forEach(el=>{
-el.setAttribute(SECURITY_KEY,'1');
-});
-};
-
-const antiScreenshot=()=>{
-document.addEventListener('keyup',e=>{
-if(e.key==='PrintScreen'){
-navigator.clipboard.writeText('');
-}
-});
-};
-
-if(typeof __REACT_DEVTOOLS_GLOBAL_HOOK__==='object'){
-for(let[key,value]of Object.entries(__REACT_DEVTOOLS_GLOBAL_HOOK__)){
-__REACT_DEVTOOLS_GLOBAL_HOOK__[key]=typeof value==='function'?()=>{}:null;
-}
-}
-
-if(!checkOrigin()){
+if(!checkCloudflare()){
 return;
 }
 
-detectIframe();
-detectProxy();
+blockCloudflareProxy();
 protectSource();
-disableConsole();
-blockViewSource();
-antiScreenshot();
-
-setInterval(detectDevTools,200);
-setInterval(trap,5000);
-
-window.addEventListener('resize',()=>{
-detectDevTools();
-});
 
 })();
 </script>
