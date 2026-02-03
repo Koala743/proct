@@ -40,26 +40,135 @@ img{
 'use strict';
 
 const SECURITY_KEY='sec_'+Math.random().toString(36);
+const ALLOWED_ORIGINS=['https://koala743.github.io'];
 let devtoolsOpen=false;
 let debuggerCount=0;
+let accessDenied=false;
 
-const trap=()=>{
-debugger;
-debuggerCount++;
-if(debuggerCount>3){
-document.body.innerHTML='';
-window.location.href='about:blank';
+const blockAccess=()=>{
+if(accessDenied)return;
+accessDenied=true;
+document.body.innerHTML='<div style="color:#f00;text-align:center;padding:50px;font-size:20px;">Access Denied</div>';
+setTimeout(()=>window.location.href='about:blank',1000);
+};
+
+const checkOrigin=()=>{
+const currentOrigin=window.location.origin;
+const referrer=document.referrer;
+const isProxied=window.location.href.includes('workers.dev')||
+window.location.href.includes('herokuapp.com')||
+window.location.href.includes('glitch.me')||
+window.location.href.includes('replit')||
+window.location.href.includes('vercel.app')||
+window.location.href.includes('netlify.app')||
+window.location.href.includes('cloudflare')||
+referrer.includes('workers.dev')||
+referrer.includes('herokuapp.com');
+
+if(isProxied){
+blockAccess();
+return false;
+}
+
+const isLocalFile=window.location.protocol==='file:';
+if(isLocalFile){
+blockAccess();
+return false;
+}
+
+if(!ALLOWED_ORIGINS.includes(currentOrigin)){
+blockAccess();
+return false;
+}
+
+return true;
+};
+
+const detectProxy=()=>{
+const xhr=new XMLHttpRequest();
+const origOpen=xhr.open;
+const proxied=()=>{
+blockAccess();
+};
+xhr.open=function(...args){
+if(args[1]&&typeof args[1]==='string'){
+const url=args[1];
+if(url.includes('workers.dev')||url.includes('proxy')||url.includes('cors')){
+proxied();
+}
+}
+return origOpen.apply(this,args);
+};
+};
+
+const antiCORS=()=>{
+const checkHeaders=()=>{
+fetch(window.location.href,{method:'HEAD'})
+.then(response=>{
+const corsHeader=response.headers.get('access-control-allow-origin');
+if(corsHeader&&corsHeader!=='null'){
+blockAccess();
+}
+})
+.catch(()=>{});
+};
+setTimeout(checkHeaders,500);
+};
+
+const detectIframe=()=>{
+try{
+if(window.self!==window.top){
+window.top.location=window.self.location;
+blockAccess();
+}
+}catch(e){
+blockAccess();
+}
+
+if(window.parent!==window){
+blockAccess();
+}
+
+if(window.frameElement){
+blockAccess();
 }
 };
 
-const antiDebug=()=>{
-const start=performance.now();
-debugger;
-const end=performance.now();
-if(end-start>100){
-document.body.innerHTML='';
-window.location.reload();
+const checkUserAgent=()=>{
+const ua=navigator.userAgent.toLowerCase();
+const suspiciousUA=[
+'headless','phantom','selenium','webdriver','bot','crawler',
+'spider','scraper','python','curl','wget','postman'
+];
+if(suspiciousUA.some(s=>ua.includes(s))){
+blockAccess();
 }
+};
+
+const blockFetch=()=>{
+const originalFetch=window.fetch;
+window.fetch=function(...args){
+const url=args[0];
+if(typeof url==='string'){
+if(url.includes('workers.dev')||url.includes('proxy')||url!==window.location.href){
+blockAccess();
+throw new Error('Blocked');
+}
+}
+return originalFetch.apply(this,args);
+};
+};
+
+const antiViewSource=()=>{
+Object.defineProperty(document,'body',{
+get:function(){
+const stack=new Error().stack;
+if(stack&&(stack.includes('devtools')||stack.includes('inspect'))){
+blockAccess();
+}
+return document.getElementsByTagName('body')[0];
+}
+});
 };
 
 const detectDevTools=()=>{
@@ -77,19 +186,30 @@ devtoolsOpen=false;
 }
 };
 
+const trap=()=>{
+debugger;
+debuggerCount++;
+if(debuggerCount>3){
+blockAccess();
+}
+};
+
+const antiDebug=()=>{
+const start=performance.now();
+debugger;
+const end=performance.now();
+if(end-start>100){
+blockAccess();
+}
+};
+
 const blockExtensions=()=>{
 const els=document.querySelectorAll('*');
 els.forEach(el=>{
 if(el.hasAttribute('data-extension-id')||el.id.includes('extension')){
-document.body.innerHTML='';
+blockAccess();
 }
 });
-};
-
-const antiIframe=()=>{
-if(window.self!==window.top){
-window.top.location=window.self.location;
-}
 };
 
 const protectSource=()=>{
@@ -216,7 +336,15 @@ console.log(element);
 
 const detectAutomation=()=>{
 if(navigator.webdriver){
-document.body.innerHTML='';
+blockAccess();
+}
+
+if(window.navigator.plugins.length===0){
+blockAccess();
+}
+
+if(!window.chrome&&navigator.userAgent.includes('Chrome')){
+blockAccess();
 }
 };
 
@@ -225,43 +353,14 @@ const checkProtocol=()=>{
 const devtools=/./;
 devtools.toString=function(){
 trap();
-document.body.innerHTML='';
+blockAccess();
 };
 console.log('%c',devtools);
 };
 setInterval(checkProtocol,1000);
 };
 
-const obfuscateDOM=()=>{
-const obfuscate=()=>{
-const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
-let node;
-while(node=walker.nextNode()){
-if(node.nodeValue.trim()){
-node.nodeValue=node.nodeValue.replace(/./g,'*');
-}
-}
-};
-setInterval(obfuscate,5000);
-};
-
-const antiTamper=()=>{
-const originalHTML=document.documentElement.outerHTML;
-setInterval(()=>{
-if(document.documentElement.outerHTML!==originalHTML){
-document.body.innerHTML='';
-window.location.reload();
-}
-},2000);
-};
-
 const preventNetworkInspection=()=>{
-const originalFetch=window.fetch;
-window.fetch=function(...args){
-trap();
-return originalFetch.apply(this,args);
-};
-
 const originalXHR=window.XMLHttpRequest;
 window.XMLHttpRequest=function(){
 trap();
@@ -287,27 +386,65 @@ antiDebug();
 }
 };
 
+const timestampCheck=()=>{
+const loadTime=performance.now();
+if(loadTime>5000){
+blockAccess();
+}
+};
+
+const integrityCheck=()=>{
+const scripts=document.getElementsByTagName('script');
+if(scripts.length>1){
+blockAccess();
+}
+};
+
+const checkPerformance=()=>{
+const entries=performance.getEntriesByType('resource');
+const suspicious=entries.filter(e=>
+e.name.includes('proxy')||
+e.name.includes('workers.dev')||
+e.name.includes('cors-anywhere')
+);
+if(suspicious.length>0){
+blockAccess();
+}
+};
+
 if(typeof __REACT_DEVTOOLS_GLOBAL_HOOK__==='object'){
 for(let[key,value]of Object.entries(__REACT_DEVTOOLS_GLOBAL_HOOK__)){
 __REACT_DEVTOOLS_GLOBAL_HOOK__[key]=typeof value==='function'?()=>{}:null;
 }
 }
 
+if(!checkOrigin()){
+return;
+}
+
+checkUserAgent();
+detectIframe();
+detectProxy();
+blockFetch();
+antiCORS();
+antiViewSource();
 protectSource();
 disableConsole();
 blockViewSource();
-antiIframe();
 antiScreenshot();
 preventInspect();
 detectAutomation();
 blockDevtoolsProtocol();
 blockCommonTools();
 preventNetworkInspection();
+timestampCheck();
 
 setInterval(detectDevTools,100);
 setInterval(trap,3000);
 setInterval(blockExtensions,1000);
 setInterval(randomCheck,2000);
+setInterval(integrityCheck,3000);
+setInterval(checkPerformance,4000);
 
 window.addEventListener('blur',()=>{
 detectDevTools();
@@ -321,6 +458,10 @@ document.addEventListener('visibilitychange',()=>{
 if(document.hidden){
 detectDevTools();
 }
+});
+
+window.addEventListener('message',e=>{
+blockAccess();
 });
 
 })();
