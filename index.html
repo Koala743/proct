@@ -40,10 +40,67 @@ img{
 'use strict';
 
 const SECURITY_KEY='sec_'+Math.random().toString(36);
-const ALLOWED_ORIGINS=['https://koala743.github.io'];
 let devtoolsOpen=false;
 let debuggerCount=0;
 let accessDenied=false;
+
+const ALLOWED_DOMAIN='koala743.github.io';
+
+const BLOCKED_PROXIES=[
+'workers.dev',
+'worker.dev',
+'cloudflare-dns.com',
+'cloudflareworkers.com',
+'trycloudflare.com',
+'herokuapp.com',
+'herokucdn.com',
+'glitch.me',
+'glitch.com',
+'replit.com',
+'repl.it',
+'repl.co',
+'vercel.app',
+'vercel.com',
+'now.sh',
+'netlify.app',
+'netlify.com',
+'github.io',
+'gitpod.io',
+'codesandbox.io',
+'stackblitz.com',
+'ngrok.io',
+'ngrok.com',
+'localhost.run',
+'pagekite.me',
+'serveo.net',
+'localtunnel.me',
+'fly.dev',
+'render.com',
+'railway.app',
+'deta.dev',
+'deta.sh',
+'azurewebsites.net',
+'firebaseapp.com',
+'web.app',
+'page.dev',
+'surge.sh',
+'now.sh',
+'webflow.io',
+'framer.website',
+'gatsbyjs.io',
+'amplifyapp.com',
+'digitaloceanspaces.com',
+'cloudfront.net',
+'cors-anywhere',
+'allorigins',
+'whateverorigin',
+'crossorigin.me',
+'corsproxy',
+'proxy',
+'thingproxy',
+'cors.io',
+'jsonp'
+];
 
 const blockAccess=()=>{
 if(accessDenied)return;
@@ -53,21 +110,20 @@ setTimeout(()=>window.location.href='about:blank',1000);
 };
 
 const checkOrigin=()=>{
-const currentOrigin=window.location.origin;
-const referrer=document.referrer;
-const isProxied=window.location.href.includes('workers.dev')||
-window.location.href.includes('herokuapp.com')||
-window.location.href.includes('glitch.me')||
-window.location.href.includes('replit')||
-window.location.href.includes('vercel.app')||
-window.location.href.includes('netlify.app')||
-window.location.href.includes('cloudflare')||
-referrer.includes('workers.dev')||
-referrer.includes('herokuapp.com');
+const currentHost=window.location.hostname;
+const currentHref=window.location.href.toLowerCase();
+const referrer=document.referrer.toLowerCase();
 
-if(isProxied){
+if(currentHost!==ALLOWED_DOMAIN){
 blockAccess();
 return false;
+}
+
+for(const blocked of BLOCKED_PROXIES){
+if(currentHref.includes(blocked)||referrer.includes(blocked)){
+blockAccess();
+return false;
+}
 }
 
 const isLocalFile=window.location.protocol==='file:';
@@ -76,28 +132,39 @@ blockAccess();
 return false;
 }
 
-if(!ALLOWED_ORIGINS.includes(currentOrigin)){
-blockAccess();
-return false;
-}
-
 return true;
 };
 
 const detectProxy=()=>{
-const xhr=new XMLHttpRequest();
-const origOpen=xhr.open;
-const proxied=()=>{
-blockAccess();
+const checkURL=(url)=>{
+if(!url)return false;
+const urlLower=url.toLowerCase();
+for(const blocked of BLOCKED_PROXIES){
+if(urlLower.includes(blocked)){
+return true;
+}
+}
+return false;
 };
-xhr.open=function(...args){
-if(args[1]&&typeof args[1]==='string'){
+
+const originalFetch=window.fetch;
+window.fetch=function(...args){
+const url=args[0];
+if(checkURL(url)){
+blockAccess();
+throw new Error('Blocked');
+}
+return originalFetch.apply(this,args);
+};
+
+const originalOpen=XMLHttpRequest.prototype.open;
+XMLHttpRequest.prototype.open=function(...args){
 const url=args[1];
-if(url.includes('workers.dev')||url.includes('proxy')||url.includes('cors')){
-proxied();
+if(checkURL(url)){
+blockAccess();
+throw new Error('Blocked');
 }
-}
-return origOpen.apply(this,args);
+return originalOpen.apply(this,args);
 };
 };
 
@@ -106,7 +173,7 @@ const checkHeaders=()=>{
 fetch(window.location.href,{method:'HEAD'})
 .then(response=>{
 const corsHeader=response.headers.get('access-control-allow-origin');
-if(corsHeader&&corsHeader!=='null'){
+if(corsHeader&&corsHeader!=='null'&&corsHeader!==window.location.origin){
 blockAccess();
 }
 })
@@ -138,37 +205,22 @@ const checkUserAgent=()=>{
 const ua=navigator.userAgent.toLowerCase();
 const suspiciousUA=[
 'headless','phantom','selenium','webdriver','bot','crawler',
-'spider','scraper','python','curl','wget','postman'
+'spider','scraper','python','curl','wget','postman','insomnia',
+'httpie','axios','node-fetch','got','request','superagent'
 ];
 if(suspiciousUA.some(s=>ua.includes(s))){
 blockAccess();
 }
 };
 
-const blockFetch=()=>{
-const originalFetch=window.fetch;
-window.fetch=function(...args){
-const url=args[0];
-if(typeof url==='string'){
-if(url.includes('workers.dev')||url.includes('proxy')||url!==window.location.href){
-blockAccess();
-throw new Error('Blocked');
-}
-}
-return originalFetch.apply(this,args);
-};
-};
-
 const antiViewSource=()=>{
-Object.defineProperty(document,'body',{
-get:function(){
+const checkStack=()=>{
 const stack=new Error().stack;
 if(stack&&(stack.includes('devtools')||stack.includes('inspect'))){
 blockAccess();
 }
-return document.getElementsByTagName('body')[0];
-}
-});
+};
+setInterval(checkStack,1000);
 };
 
 const detectDevTools=()=>{
@@ -360,14 +412,6 @@ console.log('%c',devtools);
 setInterval(checkProtocol,1000);
 };
 
-const preventNetworkInspection=()=>{
-const originalXHR=window.XMLHttpRequest;
-window.XMLHttpRequest=function(){
-trap();
-return new originalXHR();
-};
-};
-
 const blockCommonTools=()=>{
 const blocked=['firebug','devtools','inspect','debugger'];
 blocked.forEach(tool=>{
@@ -402,11 +446,10 @@ blockAccess();
 
 const checkPerformance=()=>{
 const entries=performance.getEntriesByType('resource');
-const suspicious=entries.filter(e=>
-e.name.includes('proxy')||
-e.name.includes('workers.dev')||
-e.name.includes('cors-anywhere')
-);
+const suspicious=entries.filter(e=>{
+const name=e.name.toLowerCase();
+return BLOCKED_PROXIES.some(blocked=>name.includes(blocked));
+});
 if(suspicious.length>0){
 blockAccess();
 }
@@ -425,7 +468,6 @@ return;
 checkUserAgent();
 detectIframe();
 detectProxy();
-blockFetch();
 antiCORS();
 antiViewSource();
 protectSource();
@@ -436,7 +478,6 @@ preventInspect();
 detectAutomation();
 blockDevtoolsProtocol();
 blockCommonTools();
-preventNetworkInspection();
 timestampCheck();
 
 setInterval(detectDevTools,100);
