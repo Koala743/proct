@@ -42,7 +42,6 @@ img{
 const SECURITY_KEY='sec_'+Math.random().toString(36);
 let devtoolsOpen=false;
 let debuggerCount=0;
-let accessDenied=false;
 
 const ALLOWED_DOMAIN='koala743.github.io';
 
@@ -76,41 +75,23 @@ const BLOCKED_PROXIES=[
 'fly.dev',
 'render.com',
 'railway.app',
-'deta.dev',
-'deta.sh',
-'azurewebsites.net',
-'firebaseapp.com',
-'web.app',
-'page.dev',
-'surge.sh',
-'webflow.io',
-'framer.website',
-'gatsbyjs.io',
-'amplifyapp.com',
-'digitaloceanspaces.com',
-'cloudfront.net',
 'cors-anywhere',
 'allorigins',
 'whateverorigin',
 'crossorigin.me',
 'corsproxy',
-'proxy',
 'thingproxy',
-'cors.io',
-'jsonp'
+'cors.io'
 ];
 
 const blockAccess=()=>{
-if(accessDenied)return;
-accessDenied=true;
 document.body.innerHTML='<div style="color:#f00;text-align:center;padding:50px;font-size:20px;">Access Denied</div>';
-setTimeout(()=>window.location.href='about:blank',1000);
+setTimeout(()=>window.location.href='about:blank',2000);
 };
 
 const checkOrigin=()=>{
 const currentHost=window.location.hostname;
 const currentHref=window.location.href.toLowerCase();
-const referrer=document.referrer.toLowerCase();
 
 if(currentHost!==ALLOWED_DOMAIN){
 blockAccess();
@@ -118,14 +99,13 @@ return false;
 }
 
 for(const blocked of BLOCKED_PROXIES){
-if(currentHref.includes(blocked)||referrer.includes(blocked)){
+if(currentHref.includes(blocked)){
 blockAccess();
 return false;
 }
 }
 
-const isLocalFile=window.location.protocol==='file:';
-if(isLocalFile){
+if(window.location.protocol==='file:'){
 blockAccess();
 return false;
 }
@@ -148,84 +128,25 @@ return false;
 const originalFetch=window.fetch;
 window.fetch=function(...args){
 const url=args[0];
-if(checkURL(url)){
-blockAccess();
+if(typeof url==='string'&&checkURL(url)){
 throw new Error('Blocked');
 }
 return originalFetch.apply(this,args);
 };
-
-const originalOpen=XMLHttpRequest.prototype.open;
-XMLHttpRequest.prototype.open=function(...args){
-const url=args[1];
-if(checkURL(url)){
-blockAccess();
-throw new Error('Blocked');
-}
-return originalOpen.apply(this,args);
-};
-};
-
-const antiCORS=()=>{
-const checkHeaders=()=>{
-fetch(window.location.href,{method:'HEAD'})
-.then(response=>{
-const corsHeader=response.headers.get('access-control-allow-origin');
-if(corsHeader&&corsHeader!=='null'&&corsHeader!==window.location.origin){
-blockAccess();
-}
-})
-.catch(()=>{});
-};
-setTimeout(checkHeaders,500);
 };
 
 const detectIframe=()=>{
 try{
 if(window.self!==window.top){
 window.top.location=window.self.location;
-blockAccess();
 }
-}catch(e){
-blockAccess();
-}
-
-if(window.parent!==window){
-blockAccess();
-}
-
-if(window.frameElement){
-blockAccess();
-}
-};
-
-const checkUserAgent=()=>{
-const ua=navigator.userAgent.toLowerCase();
-const suspiciousUA=[
-'headless','phantom','selenium','webdriver','bot','crawler',
-'spider','scraper','python','curl','wget','postman','insomnia',
-'httpie','axios','node-fetch','got','request','superagent'
-];
-if(suspiciousUA.some(s=>ua.includes(s))){
-blockAccess();
-}
-};
-
-const antiViewSource=()=>{
-const checkStack=()=>{
-const stack=new Error().stack;
-if(stack&&(stack.includes('devtools')||stack.includes('inspect'))){
-blockAccess();
-}
-};
-setInterval(checkStack,1000);
+}catch(e){}
 };
 
 const detectDevTools=()=>{
 const widthThreshold=window.outerWidth-window.innerWidth>160;
 const heightThreshold=window.outerHeight-window.innerHeight>160;
-const orientation=widthThreshold||heightThreshold;
-if(orientation){
+if(widthThreshold||heightThreshold){
 if(!devtoolsOpen){
 devtoolsOpen=true;
 document.body.innerHTML='';
@@ -239,33 +160,15 @@ devtoolsOpen=false;
 const trap=()=>{
 debugger;
 debuggerCount++;
-if(debuggerCount>3){
-blockAccess();
+if(debuggerCount>5){
+document.body.innerHTML='';
+window.location.href='about:blank';
 }
-};
-
-const antiDebug=()=>{
-const start=performance.now();
-debugger;
-const end=performance.now();
-if(end-start>100){
-blockAccess();
-}
-};
-
-const blockExtensions=()=>{
-const els=document.querySelectorAll('*');
-els.forEach(el=>{
-if(el.hasAttribute('data-extension-id')||el.id.includes('extension')){
-blockAccess();
-}
-});
 };
 
 const protectSource=()=>{
 document.addEventListener('contextmenu',e=>{
 e.preventDefault();
-e.stopPropagation();
 return false;
 },true);
 
@@ -274,15 +177,11 @@ const forbidden=(
 e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='i'||e.key==='J'||e.key==='j'||e.key==='C'||e.key==='c')||
 e.ctrlKey&&(e.key==='u'||e.key==='U'||e.key==='s'||e.key==='S')||
 e.key==='F12'||e.keyCode===123||
-e.key==='F1'||
-(e.ctrlKey&&e.key==='p')||
 (e.metaKey&&e.shiftKey&&e.key==='c')||
 (e.metaKey&&e.key==='u')
 );
 if(forbidden){
 e.preventDefault();
-e.stopPropagation();
-trap();
 return false;
 }
 },true);
@@ -303,11 +202,6 @@ e.preventDefault();
 return false;
 },true);
 
-document.addEventListener('paste',e=>{
-e.preventDefault();
-return false;
-},true);
-
 document.addEventListener('drag',e=>{
 e.preventDefault();
 return false;
@@ -317,16 +211,11 @@ document.addEventListener('dragstart',e=>{
 e.preventDefault();
 return false;
 },true);
-
-document.addEventListener('drop',e=>{
-e.preventDefault();
-return false;
-},true);
 };
 
 const disableConsole=()=>{
 const noop=()=>{};
-const methods=['log','debug','info','warn','error','trace','dir','dirxml','group','groupCollapsed','groupEnd','time','timeEnd','timeLog','timeStamp','profile','profileEnd','clear','table','assert','count','countReset','dirxml'];
+const methods=['log','debug','info','warn','error','trace','dir','dirxml','group','groupCollapsed','groupEnd','time','timeEnd','profile','profileEnd','clear','table'];
 methods.forEach(method=>{
 try{
 Object.defineProperty(console,method,{
@@ -334,13 +223,6 @@ get:()=>noop,
 set:()=>{}
 });
 }catch{}
-});
-
-Object.defineProperty(console,'_commandLineAPI',{
-get:function(){
-trap();
-throw new Error();
-}
 });
 };
 
@@ -373,86 +255,6 @@ navigator.clipboard.writeText('');
 });
 };
 
-const preventInspect=()=>{
-const element=new Image();
-Object.defineProperty(element,'id',{
-get:function(){
-trap();
-throw new Error();
-}
-});
-console.log(element);
-};
-
-const detectAutomation=()=>{
-if(navigator.webdriver){
-blockAccess();
-}
-
-if(window.navigator.plugins.length===0){
-blockAccess();
-}
-
-if(!window.chrome&&navigator.userAgent.includes('Chrome')){
-blockAccess();
-}
-};
-
-const blockDevtoolsProtocol=()=>{
-const checkProtocol=()=>{
-const devtools=/./;
-devtools.toString=function(){
-trap();
-blockAccess();
-};
-console.log('%c',devtools);
-};
-setInterval(checkProtocol,1000);
-};
-
-const blockCommonTools=()=>{
-const blocked=['firebug','devtools','inspect','debugger'];
-blocked.forEach(tool=>{
-Object.defineProperty(window,tool,{
-get:()=>{
-trap();
-throw new Error();
-}
-});
-});
-};
-
-const randomCheck=()=>{
-if(Math.random()>0.5){
-antiDebug();
-}
-};
-
-const timestampCheck=()=>{
-const loadTime=performance.now();
-if(loadTime>5000){
-blockAccess();
-}
-};
-
-const integrityCheck=()=>{
-const scripts=document.getElementsByTagName('script');
-if(scripts.length>1){
-blockAccess();
-}
-};
-
-const checkPerformance=()=>{
-const entries=performance.getEntriesByType('resource');
-const suspicious=entries.filter(e=>{
-const name=e.name.toLowerCase();
-return BLOCKED_PROXIES.some(blocked=>name.includes(blocked));
-});
-if(suspicious.length>0){
-blockAccess();
-}
-};
-
 if(typeof __REACT_DEVTOOLS_GLOBAL_HOOK__==='object'){
 for(let[key,value]of Object.entries(__REACT_DEVTOOLS_GLOBAL_HOOK__)){
 __REACT_DEVTOOLS_GLOBAL_HOOK__[key]=typeof value==='function'?()=>{}:null;
@@ -463,44 +265,18 @@ if(!checkOrigin()){
 return;
 }
 
-checkUserAgent();
 detectIframe();
 detectProxy();
-antiCORS();
-antiViewSource();
 protectSource();
 disableConsole();
 blockViewSource();
 antiScreenshot();
-preventInspect();
-detectAutomation();
-blockDevtoolsProtocol();
-blockCommonTools();
-timestampCheck();
 
-setInterval(detectDevTools,100);
-setInterval(trap,3000);
-setInterval(blockExtensions,1000);
-setInterval(randomCheck,2000);
-setInterval(integrityCheck,3000);
-setInterval(checkPerformance,4000);
-
-window.addEventListener('blur',()=>{
-detectDevTools();
-});
+setInterval(detectDevTools,200);
+setInterval(trap,5000);
 
 window.addEventListener('resize',()=>{
 detectDevTools();
-});
-
-document.addEventListener('visibilitychange',()=>{
-if(document.hidden){
-detectDevTools();
-}
-});
-
-window.addEventListener('message',e=>{
-blockAccess();
 });
 
 })();
