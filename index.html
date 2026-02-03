@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Imagen</title>
+<style>
+body{
+  margin:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+  background:#1a1a1a;
+  user-select:none;
+  -webkit-user-select:none;
+  -moz-user-select:none;
+}
+
+img{
+  max-width:90%;
+  height:auto;
+  pointer-events:none;
+  -webkit-user-drag:none;
+  -khtml-user-drag:none;
+  -moz-user-drag:none;
+  -o-user-drag:none;
+}
+</style>
+</head>
+<body>
+<img src="https://reycomix.com/wp-content/uploads/2025/06/GOKU-x-PAN-AlexisDavid-01.webp" alt="Imagen">
+<script>
+(function(){
+document.addEventListener('contextmenu',e=>e.preventDefault());
+document.addEventListener('keydown',e=>{
+if(e.ctrlKey&&(e.key==='u'||e.key==='U'||e.key==='s'||e.key==='S')||e.key==='F12'||e.keyCode===123){
+e.preventDefault();
+return false;
+}
+});
+document.addEventListener('selectstart',e=>e.preventDefault());
+document.addEventListener('copy',e=>e.preventDefault());
+setInterval(()=>{
+if(window.outerWidth-window.innerWidth>160||window.outerHeight-window.innerHeight>160){
+document.body.innerHTML='';
+}
+},100);
+const devtools=()=>{
+const threshold=160;
+if(window.outerWidth-window.innerWidth>threshold||window.outerHeight-window.innerHeight>threshold){
+document.body.innerHTML='';
+window.location.reload();
+}
+};
+setInterval(devtools,500);
+Object.defineProperty(console,'_commandLineAPI',{
+get:function(){
+throw new Error();
+}
+});
+const noop=()=>{};
+['log','debug','info','warn','error','trace','dir','dirxml','group','groupCollapsed','groupEnd','time','timeEnd','profile','profileEnd','clear'].forEach(method=>{
+console[method]=noop;
+});
+if(typeof __REACT_DEVTOOLS_GLOBAL_HOOK__==='object'){
+for(let[key,value]of Object.entries(__REACT_DEVTOOLS_GLOBAL_HOOK__)){
+__REACT_DEVTOOLS_GLOBAL_HOOK__[key]=typeof value==='function'?noop:null;
+}
+}
+})();
+</script>
+</body>
+</html>
