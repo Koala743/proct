@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Imagen</title>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Imagen</title>
 <style>
 body{
   margin:0;
@@ -37,25 +37,46 @@ img{
 </style>
 </head>
 <body>
-<img src="https://reycomix.com/wp-content/uploads/2025/06/GOKU-x-PAN-AlexisDavid-01.webp" alt="Imagen">
 <script>
 (function(){
 'use strict';
-
-const VERSION='v1.0.0';
-console.log('Version:',VERSION);
 
 const CLOUDFLARE_PROXIES=[
 'workers.dev',
 'worker.dev',
 'cloudflare-dns.com',
 'cloudflareworkers.com',
-'trycloudflare.com'
+'trycloudflare.com',
+'cors-anywhere',
+'allorigins',
+'whateverorigin',
+'crossorigin.me',
+'corsproxy',
+'thingproxy'
 ];
 
+const validFingerprint=()=>{
+if(!navigator.languages||navigator.languages.length===0)return false;
+if(!navigator.plugins||navigator.plugins.length===0)return false;
+if(navigator.webdriver)return false;
+if(!window.screen||!window.screen.width)return false;
+return true;
+};
+
+const checkHeaders=()=>{
+const isIframe=window.self!==window.top;
+const hasReferrer=document.referrer&&document.referrer.length>0;
+const referrerLower=document.referrer.toLowerCase();
+for(const proxy of CLOUDFLARE_PROXIES){
+if(referrerLower.includes(proxy))return false;
+}
+return true;
+};
+
 const blockAccess=()=>{
-document.body.innerHTML='<div style="color:#f00;text-align:center;padding:50px;font-size:20px;">⛔ Cloudflare Proxy Detected</div>';
-setTimeout(()=>window.location.href='about:blank',2000);
+document.body.innerHTML='';
+document.head.innerHTML='<title>403</title>';
+setTimeout(()=>window.location.href='about:blank',500);
 };
 
 const checkCloudflare=()=>{
@@ -72,36 +93,104 @@ return false;
 return true;
 };
 
+const antiScraping=()=>{
+if(!validFingerprint()){
+blockAccess();
+return false;
+}
+
+if(!checkHeaders()){
+blockAccess();
+return false;
+}
+
+const userAgent=navigator.userAgent.toLowerCase();
+const bots=['bot','crawler','spider','scraper','python','curl','wget','fetch','axios','headless','phantom','selenium'];
+for(const bot of bots){
+if(userAgent.includes(bot)){
+blockAccess();
+return false;
+}
+}
+
+return true;
+};
+
 const blockCloudflareProxy=()=>{
 const originalFetch=window.fetch;
 window.fetch=function(...args){
-const url=args[0];
-if(typeof url==='string'){
-const urlLower=url.toLowerCase();
-for(const proxy of CLOUDFLARE_PROXIES){
-if(urlLower.includes(proxy)){
 blockAccess();
-throw new Error('Cloudflare proxy blocked');
-}
-}
-}
-return originalFetch.apply(this,args);
+throw new Error('Blocked');
 };
 
 const originalOpen=XMLHttpRequest.prototype.open;
 XMLHttpRequest.prototype.open=function(...args){
-const url=args[1];
-if(typeof url==='string'){
-const urlLower=url.toLowerCase();
-for(const proxy of CLOUDFLARE_PROXIES){
-if(urlLower.includes(proxy)){
 blockAccess();
-throw new Error('Cloudflare proxy blocked');
-}
-}
-}
-return originalOpen.apply(this,args);
+throw new Error('Blocked');
 };
+
+Object.defineProperty(document,'body',{
+get:function(){
+const stack=new Error().stack;
+if(stack&&stack.includes('DOMParser')){
+blockAccess();
+throw new Error('Scraping detected');
+}
+return document.getElementsByTagName('body')[0];
+}
+});
+
+Object.defineProperty(document,'documentElement',{
+get:function(){
+const stack=new Error().stack;
+if(stack&&(stack.includes('DOMParser')||stack.includes('outerHTML'))){
+blockAccess();
+throw new Error('Scraping detected');
+}
+return document.getElementsByTagName('html')[0];
+}
+});
+};
+
+const obfuscateSource=()=>{
+const trapHTML=()=>{
+Object.defineProperty(HTMLElement.prototype,'innerHTML',{
+get:function(){
+const stack=new Error().stack;
+if(stack&&!stack.includes('native')){
+blockAccess();
+return '';
+}
+return this.textContent;
+},
+set:function(val){
+this.textContent=val;
+}
+});
+
+Object.defineProperty(HTMLElement.prototype,'outerHTML',{
+get:function(){
+blockAccess();
+return '';
+}
+});
+};
+
+const trapText=()=>{
+Object.defineProperty(Node.prototype,'textContent',{
+get:function(){
+const stack=new Error().stack;
+if(stack&&stack.includes('DOMParser')){
+blockAccess();
+return '';
+}
+return this.nodeValue;
+}
+});
+};
+
+trapHTML();
+trapText();
 };
 
 const protectSource=()=>{
@@ -139,8 +228,18 @@ if(!checkCloudflare()){
 return;
 }
 
+if(!antiScraping()){
+return;
+}
+
 blockCloudflareProxy();
+obfuscateSource();
 protectSource();
+
+const img=document.createElement('img');
+img.src='https://reycomix.com/wp-content/uploads/2025/06/GOKU-x-PAN-AlexisDavid-01.webp';
+img.style.cssText='max-width:90%;height:auto;pointer-events:none;-webkit-user-drag:none;-webkit-user-select:none';
+document.body.appendChild(img);
 
 })();
 </script>
