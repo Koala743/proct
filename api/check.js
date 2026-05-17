@@ -10,7 +10,7 @@ module.exports = async function handler(req, res) {
   if (!email) return res.status(400).json({ error: "Email required" });
 
   // TEST: agrega tu email aquí temporalmente
-  const testEmails = ["armijosfeo@gmail.com"];
+  const testEmails = ["armijofeo28@gmail.com"];
 
   const purchased = !!global.purchasedEmails[email] || testEmails.includes(email);
 
