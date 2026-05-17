@@ -1,34 +1,50 @@
-const { Resend } = require("resend");
+const crypto = require("crypto");
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-global.codes = global.codes || {};
+global.purchasedEmails = global.purchasedEmails || {};
 
 module.exports = async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
-    const email = req.query.email;
+  // Verificar firma
+  const secret = process.env.LEMON_SECRET;
+  const signature = req.headers["x-signature"];
 
-    if (!email) {
-        return res.status(400).json({
-            error: "Email required"
-        });
+  if (secret && signature) {
+    const body = JSON.stringify(req.body);
+    const hash = crypto
+      .createHmac("sha256", secret)
+      .update(body)
+      .digest("hex");
+
+    if (hash !== signature) {
+      return res.status(401).json({ error: "Invalid signature" });
     }
+  }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const eventName = req.body?.meta?.event_name;
+  const email =
+    req.body?.data?.attributes?.user_email ||
+    req.body?.data?.attributes?.customer_email;
 
-    global.codes[email] = code;
+  if (!email) {
+    return res.status(200).json({ received: true });
+  }
 
-    await resend.emails.send({
-        from: "onboarding@resend.dev",
-        to: email,
-        subject: "Verification Code",
-        html: `
-            <h1>Your Code</h1>
-            <h2>${code}</h2>
-        `
-    });
+  const allowedEvents = [
+    "order_created",
+    "subscription_created",
+    "subscription_payment_success",
+  ];
 
-    res.status(200).json({
-        success: true
-    });
-}
+  if (allowedEvents.includes(eventName)) {
+    global.purchasedEmails[email] = {
+      event: eventName,
+      date: new Date().toISOString(),
+    };
+    console.log(`[webhook] ${eventName} → ${email}`);
+  }
+
+  res.status(200).json({ received: true });
+};
