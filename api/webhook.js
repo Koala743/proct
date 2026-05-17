@@ -1,49 +1,34 @@
-const crypto = require("crypto");
 const { Resend } = require("resend");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+global.codes = global.codes || {};
+
 module.exports = async function handler(req, res) {
-    const chunks = [];
 
-    for await (const chunk of req) {
-        chunks.push(chunk);
-    }
+    const email = req.query.email;
 
-    const rawBody = Buffer.concat(chunks).toString("utf8");
-
-    const signature = req.headers["x-signature"];
-
-    const digest = crypto
-        .createHmac("sha256", process.env.LEMON_SECRET)
-        .update(rawBody)
-        .digest("hex");
-
-    if (digest !== signature) {
-        return res.status(403).send("Invalid signature");
-    }
-
-    const body = JSON.parse(rawBody);
-
-    if (body.meta.event_name === "order_created") {
-
-        const email = body.data.attributes.user_email;
-
-        const key = crypto.randomBytes(16).toString("hex");
-
-        await resend.emails.send({
-            from: "onboarding@resend.dev",
-            to: email,
-            subject: "Your DBU Rage Key",
-            html: `
-                <h1>Thanks for buying</h1>
-                <p>Your Key:</p>
-                <b>${key}</b>
-            `
+    if (!email) {
+        return res.status(400).json({
+            error: "Email required"
         });
-
-        console.log("Key sent:", email);
     }
 
-    res.status(200).send("OK");
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    global.codes[email] = code;
+
+    await resend.emails.send({
+        from: "onboarding@resend.dev",
+        to: email,
+        subject: "Verification Code",
+        html: `
+            <h1>Your Code</h1>
+            <h2>${code}</h2>
+        `
+    });
+
+    res.status(200).json({
+        success: true
+    });
 }
