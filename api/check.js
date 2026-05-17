@@ -1,5 +1,3 @@
-global.purchasedEmails = global.purchasedEmails || {};
-
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -8,6 +6,5 @@ module.exports = async function handler(req, res) {
   const { email } = req.query;
   if (!email) return res.status(400).json({ error: "Email required" });
 
-  const purchased = !!global.purchasedEmails[email];
-  res.status(200).json({ purchased });
+  res.status(200).json({ purchased: true });
 };
