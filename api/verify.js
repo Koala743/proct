@@ -4,15 +4,11 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const { email, code } = req.query;
+  const CF = "https://anonimogmail.armijosfeo.workers.dev";
 
-  const r = await fetch(`${process.env.KV_REST_API_URL}/get/code:${email}`, {
-    headers: { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` }
-  });
+  const r = await fetch(`${CF}/verify?email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`);
   const data = await r.json();
 
-  if (data.result === code) {
-    return res.status(200).json({ success: true });
-  }
-
+  if (data.success) return res.status(200).json({ success: true });
   res.status(400).json({ success: false });
 };
