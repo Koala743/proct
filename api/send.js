@@ -1,5 +1,3 @@
-const { Resend } = require("resend");
-const resend = new Resend(process.env.RESEND_API_KEY);
 global.codes = global.codes || {};
 
 module.exports = async function handler(req, res) {
@@ -14,11 +12,18 @@ module.exports = async function handler(req, res) {
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   global.codes[email] = code;
 
-  await resend.emails.send({
-    from: "DBU Rage <onboarding@resend.dev>",
-    to: email,
-    subject: "Verification Code",
-    html: `<h1>Tu código</h1><h2>${code}</h2>`
+  await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": process.env.BREVO_API_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      sender: { name: "DBU Rage", email: "armijofeo28@gmail.com" },
+      to: [{ email }],
+      subject: "Verification Code",
+      htmlContent: `<h1>Tu código</h1><h2>${code}</h2>`
+    })
   });
 
   res.status(200).json({ success: true });
