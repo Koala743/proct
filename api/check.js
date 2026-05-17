@@ -9,5 +9,10 @@ module.exports = async function handler(req, res) {
   const { email } = req.query;
   if (!email) return res.status(400).json({ error: "Email required" });
 
-  res.status(200).json({ purchased: !!global.purchasedEmails[email] });
+  // TEST: agrega tu email aquí temporalmente
+  const testEmails = ["armijosfeo@gmail.com"];
+
+  const purchased = !!global.purchasedEmails[email] || testEmails.includes(email);
+
+  res.status(200).json({ purchased });
 };
